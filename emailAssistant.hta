@@ -1,0 +1,69 @@
+<!--
+ We want to do several things with this file, any one of: 
+ 1. if the user enters an email address, then copy all inbound mail to that user
+    optionally don't send a copy to myself 
+ 2. allow the user to specify or edit an Out of Office (Vacation) message
+ 3. turn off both of the above
+ 
+ to do this we will need to read and write a .forward file in the user's home area together with a vacation file for a vacation message
+    
+    https://technet.microsoft.com/en-us/library/ee692768.aspx  part 1
+    https://technet.microsoft.com/en-us/library/ee692769.aspx  part 2
+-->
+
+<html>
+<head>
+<title>Email Out of Office Assistant</title>
+<HTA:APPLICATION 
+     ID="objemailAssistant" 
+     APPLICATIONNAME="emailAssistant"
+     SCROLL="yes"
+     SINGLEINSTANCE="yes"
+>
+<!-- you can do fancy styling of the box contents here -->
+<style>body{background:#CCC;overflow-y:hidden;}</style>
+</head>
+
+<!-- there's a companion file with all the code in it here: -->
+<SCRIPT language="VBScript" src="emailAssistant.vbs"></script>
+
+<!-- and then this defines what the form looks like -->
+<body onKeyPress="CheckKey">
+    You can choose to send a copy of every mail to someone else within your organisation<br>
+    or you can set an Out of Office message.<br>
+    Please select one of the following options:<br>
+    <!-- <a data-href="http://itwiki.goodness.co.uk/itwiki/doku.php" href="#" onclick=""> please blah</a> -->
+    <P>
+    <input id="radioRedirect" type="radio" name="RadioOption" value="redirect" />
+    redirect all mail to (with a copy to myself):<br>
+    <input style="visibility: hidden;" type="checkbox" name="dummy">
+    <input type="text" name="ForwardAllTo" size="75">
+    <!-- to make this box appear remove style="visibility: hidden;" and uncomment the text, then uncomment the setting at the head of the vb script-->
+    <!-- <br> -->
+    <input style="visibility: hidden;" type="checkbox" name="sendtoSelf"> <!-- Send a copy to myself --> 
+    </P>
+    <P>
+    <input id="radioVacation" type="radio" name="RadioOption" value="setooo" />
+    set Out of Office subject & message:<BR>
+    <input style="visibility: hidden;" type="checkbox" name="dummy">
+    <input type="text" name="VacationSubject" size="75"><br/>
+    </P>
+    <P>
+    <!-- <input style="visibility: hidden;" id="radioVacation2" type="radio" name="RadioOption2" value="setdummy" /> -->
+    <input style="visibility: hidden;" type="checkbox" name="dummy">
+    <textarea name="VacationMessage" rows=5 cols=75></textarea>
+    </P>
+    <P>
+    <input id="radioClear" type="radio" name="RadioOption" value="reset">
+    no "redirect" or "Out of Office" message
+    </P>
+    <P>
+    <!-- make the "submit" button be the thing that gets chosen if user presses {Enter} -->
+    <input id=submitbutton  class="button" type="submit" value="Submit" name="Submit"  onClick="Submit"/>
+    <input id=cancelbutton  class="button" type="button" value="Cancel" name="Cancel"  onClick="Cancel"/>
+    <!-- for debug -->
+    <!-- <textarea name="ControlFile" rows=8 cols=75></textarea> -->
+    </P>
+
+</body>
+</html>
