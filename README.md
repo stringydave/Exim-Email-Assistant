@@ -5,12 +5,12 @@ You _can_ make Exim handle email redirection, and out of Office (Vacation messag
 I couldn't find any plugins for Thunderbird which would create / manage this file, so I hacked this little .hta file to do the job.  It's pretty basic but hopefully will allow our users to manage their redirection and Out of Office needs.
 
 
-So the user can do:
+So the user can do one of:
 
-1. if the user enters an email address, then copy all inbound mail to that user
+* if the user enters an email address, then copy all inbound mail to that user
   * optionally don't send a copy to myself (though this code is commented out at present)
-1. allow the user to specify or edit an Out of Office (Vacation) message
-1. turn off both of the above
+* allow the user to specify or edit an Out of Office (Vacation) message
+* turn off both of the above
 
 Assumptions:
 
