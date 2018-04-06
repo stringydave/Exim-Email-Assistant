@@ -19,6 +19,7 @@ strControlFile         = strHhomeshare & "\.forward"
 strVacationFileDflt    = strHhomeshare & "\.vacation.msg"
 Dim strVacationFile
 Dim strForwardEmail
+Dim strVacationMessage
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 
 Dim arrControlFile(200) ' make sure it's big enough, memory is cheap
@@ -74,7 +75,7 @@ Sub Window_onLoad
         End If
         
         ' ==== Vacation section ============================================
-        If InStr(1,strThisLine,"if personal then",vbTextCompare) Then 
+        If InStr(1,strThisLine,"if personal alias",vbTextCompare) Then 
             ' is it commented?
             strVac1 = Left(strThisLine,1)
             If strVac1 <> "#" Then radioVacation.Checked = true
@@ -119,7 +120,7 @@ Sub Window_onLoad
     End If
     
     ' default message
-    strVacationMessage = "I will attend to your message on my return"
+    LoadDefaultMessage
     ' now, if the file exists, and contains data, read it
     If fso.FileExists(strVacationFile) Then 
         Set objVacationFile = fso.GetFile(strVacationFile)
@@ -279,10 +280,42 @@ Sub LoadDefaultControlFile
     arrControlFile(10) = "# this forwards the mail to someone@domain and optionally delivers it also your mailbox"
     arrControlFile(11) = "# unseen deliver recipient@company.co.uk"
     arrControlFile(12) = ""
-    arrControlFile(13) = "# if personal then"
-    arrControlFile(14) = "#    mail to $reply_address"
-    arrControlFile(15) = "#    subject ""I am currently away"""
-    arrControlFile(16) = "#    file $home/.vacation.msg"
-    arrControlFile(17) = "# endif"
-    intControlFileEOF = 17
+    arrControlFile(13) = "# deal with Spam, these will be marked with"
+    arrControlFile(14) = "# X-Spam-Level: YES or X-Spam-Status: Yes,  (be careful, this one contains baYES)"
+    arrControlFile(15) = "if"
+    arrControlFile(16) = "  $h_X-Spam-Level: contains ""YES"""
+    arrControlFile(17) = "    or"
+    arrControlFile(18) = "  $h_X-Spam-Status: CONTAINS ""Yes,"""
+    arrControlFile(19) = "then"
+    arrControlFile(20) = "  save $home/Maildir/.Junk/"
+    arrControlFile(21) = "  finish"
+    arrControlFile(22) = "endif"
+    arrControlFile(23) = ""
+    arrControlFile(24) = "# out of office"
+    arrControlFile(25) = "if personal alias dave.evans@goodness.co.uk then"
+    arrControlFile(26) = "    vacation to $reply_address"
+    arrControlFile(27) = "    expand file $home/.vacation.msg"
+    arrControlFile(28) = "    once $home/.vacation.db"
+    arrControlFile(29) = "    log $home/.vacation.log"
+    arrControlFile(30) = "    once_repeat 10d"
+    arrControlFile(31) = "    from $local_part\@$domain"
+    arrControlFile(32) = "    subject ""Auto: I am out of the office"""
+    arrControlFile(33) = "endif"
+    intControlFileEOF = 33
 End Sub
+
+Sub LoadDefaultMessage
+
+    strVacationMessage   = "Subject: Auto: I away from the office" _
+                & vbCRLF & "Precedence: bulk" _
+                & vbCRLF & "This is an auto-response to your message: $SUBJECT" _
+                & vbCRLF & "" _
+                & vbCRLF & "I am currently out of the office." _
+                & vbCRLF & "I will respond to your message on my return."
+End Sub                
+
+
+
+
+
+
