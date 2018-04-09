@@ -6,6 +6,9 @@
 ' https://technet.microsoft.com/en-us/library/ee692768.aspx  part 1
 ' https://technet.microsoft.com/en-us/library/ee692769.aspx  part 2
 
+' 09/04/18  dce  todo: Firstname Secondname <recipient.name@company.co.uk> needs replacing at run time
+'                possibly using LDAP lookup, or we could just ask the user.
+
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set dctControlFile = CreateObject("Scripting.Dictionary")
@@ -192,7 +195,6 @@ Sub SetRedirect(blSet)
         ' check for @ & . and the default address, start the compare from after 0, or a match will return 0 which looks like "not found"
         If InStr(1,strForwardEmail,"@",vbTextCompare) And InStr(1,strForwardEmail,".",vbTextCompare) And Len(strForwardEmail) > 10 _
             And InStr(1,strForwardEmail,"ecipient",vbTextCompare) = 0 And InStr(1,strForwardEmail,"company",vbTextCompare) = 0 Then 
-            ' And (Not (InStr(1,strForwardEmail,"ecipient",vbTextCompare) Or InStr(1,strForwardEmail,"company.co.uk",vbTextCompare))) Then 
                                         arrControlFile(intForwardLine) = "deliver " & strForwardEmail
             If sendtoSelf.Checked Then  arrControlFile(intForwardLine) = "unseen "  & arrControlFile(intForwardLine)
         Else
@@ -278,7 +280,7 @@ Sub LoadDefaultControlFile
     arrControlFile( 8) = "if error_message then finish endif"
     arrControlFile( 9) = ""
     arrControlFile(10) = "# this forwards the mail to someone@domain and optionally delivers it also your mailbox"
-    arrControlFile(11) = "# unseen deliver recipient@company.co.uk"
+    arrControlFile(11) = "# unseen deliver recipient.name@company.co.uk"
     arrControlFile(12) = ""
     arrControlFile(13) = "# deal with Spam, these will be marked with"
     arrControlFile(14) = "# X-Spam-Level: YES or X-Spam-Status: Yes,  (be careful, this one contains baYES)"
@@ -292,23 +294,21 @@ Sub LoadDefaultControlFile
     arrControlFile(22) = "endif"
     arrControlFile(23) = ""
     arrControlFile(24) = "# out of office"
-    arrControlFile(25) = "if personal alias dave.evans@goodness.co.uk then"
+    arrControlFile(25) = "if personal alias recipient.name@company.co.uk then"
     arrControlFile(26) = "    vacation to $reply_address"
     arrControlFile(27) = "    expand file $home/.vacation.msg"
     arrControlFile(28) = "    once $home/.vacation.db"
     arrControlFile(29) = "    log $home/.vacation.log"
     arrControlFile(30) = "    once_repeat 10d"
-    arrControlFile(31) = "    from $local_part\@$domain"
-    arrControlFile(32) = "    subject ""Auto: I am out of the office"""
+    arrControlFile(31) = "    from ""Firstname Secondname <recipient.name@company.co.uk>"""
+    arrControlFile(32) = "    subject ""Auto: Re: $h_subject:"""
     arrControlFile(33) = "endif"
     intControlFileEOF = 33
 End Sub
 
 Sub LoadDefaultMessage
 
-    strVacationMessage   = "Subject: Auto: I away from the office" _
-                & vbCRLF & "Precedence: bulk" _
-                & vbCRLF & "This is an auto-response to your message: $SUBJECT" _
+    strVacationMessage   = "This is an auto-response message" _
                 & vbCRLF & "" _
                 & vbCRLF & "I am currently out of the office." _
                 & vbCRLF & "I will respond to your message on my return."
