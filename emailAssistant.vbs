@@ -1,13 +1,16 @@
 ' We want to do several things with this file 
-' 1. if the user enters a string, then set that as an out of office message 
-' 2. if the user enters an email address, then redirect all mail to that user
-' optionally send a copy to myself 
+' 1. if the user enters an email address, then copy all mail to that user
+' 2. if the user enters a vacation message, then set that as an out of office message 
 
+' https://www.exim.org/exim-html-current/doc/html/spec_html/filter_ch-exim_filter_files.html
 ' https://technet.microsoft.com/en-us/library/ee692768.aspx  part 1
 ' https://technet.microsoft.com/en-us/library/ee692769.aspx  part 2
 
-' 09/04/18  dce  todo: Firstname Secondname <recipient.name@company.co.uk> needs replacing at run time
-'                possibly using LDAP lookup, or we could just ask the user.
+' todo: if the control file is not valid, then initialise it
+
+' 09/04/18  dce  1.0 partly working, but lots more to do 
+' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
+' 14/05/18  dce  1.3 add getUserDetails, get Username, Email Address from Thunderbird control files.
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -20,6 +23,8 @@ strHhomeshare=oShell.ExpandEnvironmentStrings("%HOMESHARE%")
 ' we need these things global
 strControlFile         = strHhomeshare & "\.forward"
 strVacationFileDflt    = strHhomeshare & "\.vacation.msg"
+Dim strMyName
+Dim strMyEmailAddress
 Dim strVacationFile
 Dim strForwardEmail
 Dim strVacationMessage
@@ -27,17 +32,21 @@ Const ForReading = 1, ForWriting = 2, ForAppending = 8
 
 Dim arrControlFile(200) ' make sure it's big enough, memory is cheap
 Dim intForwardLine
+Dim intUserNameLine
+Dim intUserEmailLine
 Dim intVacationSectionStart
-Dim intVacationSubjectLine
+Dim strVacationAlias 
+Dim intVacationAliasLine 
 Dim intVacationFileLine
+Dim strVacationFrom
+Dim intVacationFromLine
 Dim intVacationSectionEnd
 Dim intControlFileEOF
 
-Dim blOpSuccess
+SetRedirectStatus = true 
+SetVacationStatus = true
 
 debugmode = false
-
-' sendtoSelf.Checked = true
 
 ' and off we go...
 Sub Window_onLoad
@@ -55,12 +64,12 @@ Sub Window_onLoad
         LoadDefaultControlFile
     End If
     
-    ' and now parse the array contents
+    ' #### parse the array contents #####################################################
     For i = 0 To intControlFileEOF
         strThisLine = arrControlFile(i)
         
         If InStr(1,strThisLine,"# Exim filter",vbTextCompare) Then blValidControlFile = true
-        
+                
         ' ==== Forward commands ============================================
         ' in this section we're interested in a line with a "deliver" command
         If InStr(1,strThisLine,"deliver",vbTextCompare) Then
@@ -78,7 +87,7 @@ Sub Window_onLoad
         End If
         
         ' ==== Vacation section ============================================
-        If InStr(1,strThisLine,"if personal alias",vbTextCompare) Then 
+        If InStr(1,strThisLine,"if personal",vbTextCompare) Then 
             ' is it commented?
             strVac1 = Left(strThisLine,1)
             If strVac1 <> "#" Then radioVacation.Checked = true
@@ -86,14 +95,11 @@ Sub Window_onLoad
             intVacationSectionStart = i
             strVacationLine = strThisLine
         End If
-        
-        ' ==== subject line
-        If (blVacationSection And InStr(1,strThisLine,"subject",vbTextCompare)) Then 
-            intStripLine = InStr(1,strThisLine,"subject",vbTextCompare) + Len("subject ")
-            ' Replace(string,find,replacewith[,start[,count[,compare]]]) 
-            ' return string starts from intStripLine, and then remove the quotes and any surrounding spaces
-            intVacationSubjectLine = i
-            strVacationSubject = Trim(Replace(strThisLine,"""","",intStripLine)) 
+                
+        ' ==== vacation alias
+        If (blVacationSection And InStr(1,strThisLine,"alias",vbTextCompare)) Then 
+            intStripLine = InStr(1,strThisLine,"alias",vbTextCompare) + Len("alias ")
+            intVacationAliasLine = i
         End If
         
         ' ==== message file location
@@ -103,6 +109,21 @@ Sub Window_onLoad
             intVacationFileLine = i
         End If
         
+        ' ==== vacation from
+        ' from "Firstname Secondname <recipient.name@company.co.uk>"
+
+        If (blVacationSection And InStr(1,strThisLine,"from",vbTextCompare)) Then 
+            intFirstQuote     = InStr(1,strThisLine,"""",vbTextCompare) + 1
+            intFirstAngle     = InStr(1,strThisLine,"<",vbTextCompare)
+            intSecondAngle    = InStr(1,strThisLine,">",vbTextCompare)
+            ' only try to do the next bit if it's a properly formatted line
+            If intFirstQuote <> 0 and intFirstAngle <> 0 and intSecondAngle <> 0 Then
+                strMyName         = Trim(Mid(strThisLine,intFirstQuote,intFirstAngle - intFirstQuote))
+                strMyEmailAddress = Trim(Mid(strThisLine,intFirstAngle + 1,intSecondAngle - intFirstAngle - 1))
+            End If
+            intVacationFromLine = i
+        End If
+        
         ' ==== vacation section end
         If (blVacationSection And InStr(1,strThisLine,"endif",vbTextCompare)) Then 
             intVacationSectionEnd = i
@@ -110,6 +131,11 @@ Sub Window_onLoad
         End If
        
     Next
+        
+    ' if we have not yet retrieved the user details, go get them
+    If InvalidEmail(strMyEmailAddress) or Len(strMyName & "") < 5 Then
+        GetUserDetails
+    End If
     
     ' by now we have the linux version of where we think the vacation file should be, convert it to windows format
     strVacationFileWindowsVersion = Replace(strVacationFileLinuxVersion,"$home",strHhomeshare)
@@ -136,12 +162,13 @@ Sub Window_onLoad
     
     ' and preload the values into the text areas    
     ForwardAllTo.Value    = strForwardEmail
-    VacationSubject.Value = strVacationSubject
+    MyName.Value          = strMyName
+    MyEmailAddress.Value  = strMyEmailAddress
     VacationMessage.Value = strVacationMessage
     
     ' =========== for debug ===========================================
     ' now process the file we read, rebuild the Control File for diags
-    ' strForwardComands = strFwd1 & "intVacationSectionStart = " & intVacationSectionStart & " " & strVacationLine & vbCRLF & intVacationSectionEnd & "x: " & intStripLine & " """ & strVacationSubject & """" & vbCRLF
+    ' strForwardComands = strFwd1 & "intVacationSectionStart = " & intVacationSectionStart & " " & strVacationLine & vbCRLF & intVacationSectionEnd & "x: " & intStripLine & vbCRLF
     ' strForwardComands = strForwardComands & 0 & " " & arrControlFile(0)
     ' For i = 1 To intControlFileEOF
         ' strForwardComands = strForwardComands & vbCRLF & i & " " & arrControlFile(i)
@@ -163,14 +190,14 @@ Sub Submit
     Next    
     
     Select Case button_selection
-        Case "redirect" SetRedirect true
-        Case "setooo"   SetVacation true
+        Case "redirect" SetRedirect true 
+        Case "setooo"   SetVacation true 
         Case "reset"    Reset
         Case Else Msgbox "Please select one of the radio buttons."
     End Select
     
     ' and write the control file
-    If blOpSuccess Then 
+    If (SetRedirectStatus and SetVacationStatus) Then 
         WriteControlFile
         Window.Close
     End If
@@ -189,17 +216,15 @@ End Sub
 
 Sub SetRedirect(blSet)
     ' sanity checking means that we ought to raise an error if blSet
-    blOpSuccess = true
+    SetRedirectStatus = true
     If blSet Then
         strForwardEmail = ForwardAllTo.Value
-        ' check for @ & . and the default address, start the compare from after 0, or a match will return 0 which looks like "not found"
-        If InStr(1,strForwardEmail,"@",vbTextCompare) And InStr(1,strForwardEmail,".",vbTextCompare) And Len(strForwardEmail) > 10 _
-            And InStr(1,strForwardEmail,"ecipient",vbTextCompare) = 0 And InStr(1,strForwardEmail,"company",vbTextCompare) = 0 Then 
-                                        arrControlFile(intForwardLine) = "deliver " & strForwardEmail
-            If sendtoSelf.Checked Then  arrControlFile(intForwardLine) = "unseen "  & arrControlFile(intForwardLine)
+        If InvalidEmail(strForwardEmail) Then
+            Msgbox "send a copy email address:" & vbCRLF & strForwardEmail & vbCRLF & "does not seem to be a valid email address"
+            SetRedirectStatus = false
+            Exit Sub
         Else
-            Msgbox "copy email address:" & vbCRLF & strForwardEmail & vbCRLF & "does not seem to be a valid email address"
-            blOpSuccess = false
+            arrControlFile(intForwardLine) = "deliver " & strForwardEmail
         End If
         ' and turn off any Vacation message
         SetVacation false
@@ -216,9 +241,34 @@ Sub SetVacation(blSet)
         strVacationFileLinuxVersion = Replace(strVacationFile,strHhomeshare,"$home")
         strVacationFileLinuxVersion = Replace(strVacationFileLinuxVersion,"\","/")
     
-        ' set subject and file
-        arrControlFile(intVacationSubjectLine) = "   subject """ & VacationSubject.Value & """"
-        arrControlFile(intVacationFileLine)    = "   file """ & strVacationFileLinuxVersion & """"
+        ' set file
+        arrControlFile(intVacationFileLine)    = "  file """ & strVacationFileLinuxVersion & """"
+        
+        ' update the variables
+        SetVacationStatus = true
+        strMyName         = MyName.Value
+        strMyEmailAddress = MyEmailAddress.Value
+        If Len(strMyName) < 3 Then
+            Msgbox "out of office ""my name""" & vbCRLF & strMyName & vbCRLF & "does not seem to be valid"
+            SetVacationStatus = false
+            Exit Sub
+        End If
+        
+        If InvalidEmail(strMyEmailAddress) Then
+            Msgbox "out of office ""my email address""" & vbCRLF & strMyEmailAddress & vbCRLF & "does not seem to be a valid email address"
+            SetVacationStatus = false
+            Exit Sub
+        End If
+
+        ' and we need to deal with the alias and from lines:
+        ' alias recipient.name@company.co.uk"
+        ' from "Firstname Secondname <recipient.name@company.co.uk>"
+        
+        ' todo: cope here with multiple alias lines
+
+        arrControlFile(intVacationAliasLine) = "  alias " & strMyEmailAddress
+        arrControlFile(intVacationFromLine)  = "  from """ & strMyName & " <" & strMyEmailAddress & ">"""
+        
         ' uncomment any ooo settings in the array
         For i = intVacationSectionStart to intVacationSectionEnd
             If Left(arrControlFile(i),1) = "#" Then arrControlFile(i) = Mid(arrControlFile(i),3)
@@ -230,7 +280,12 @@ Sub SetVacation(blSet)
         ' write out the vacation file in case we changed it
         Set objVacationFile = fso.OpenTextFile(strVacationFile, ForWriting, true)
         objVacationFile.Write(VacationMessage.Value)
-        Msgbox "Out of Office message set:" & vbCRLF & vbCRLF & arrControlFile(intVacationSubjectLine) & vbCRLF & VacationMessage.Value & vbCRLF & vbCRLF& "please remember to turn it off on your return"
+        Msgbox _
+            "Out of Office message set:" & vbCRLF & vbCRLF & _
+            "From: " & strMyName & " " & strMyEmailAddress & vbCRLF & _
+            "Subject: Auto: Re: <message_subject>" & vbCRLF & _
+            "Message: " & VacationMessage.Value & vbCRLF & vbCRLF& _
+            "Please remember to turn this off on your return"
     Else 
         ' add a comment to the start of the line, unless it already has one
         For i = intVacationSectionStart to intVacationSectionEnd
@@ -294,27 +349,131 @@ Sub LoadDefaultControlFile
     arrControlFile(22) = "endif"
     arrControlFile(23) = ""
     arrControlFile(24) = "# out of office"
-    arrControlFile(25) = "if personal alias recipient.name@company.co.uk then"
-    arrControlFile(26) = "    vacation to $reply_address"
-    arrControlFile(27) = "    expand file $home/.vacation.msg"
-    arrControlFile(28) = "    once $home/.vacation.db"
-    arrControlFile(29) = "    log $home/.vacation.log"
-    arrControlFile(30) = "    once_repeat 10d"
-    arrControlFile(31) = "    from ""Firstname Secondname <recipient.name@company.co.uk>"""
-    arrControlFile(32) = "    subject ""Auto: Re: $h_subject:"""
-    arrControlFile(33) = "endif"
-    intControlFileEOF = 33
+    arrControlFile(25) = "if personal"
+    arrControlFile(26) = "  alias recipient.name@company.co.uk"
+    arrControlFile(27) = "  then"
+    arrControlFile(28) = "  vacation to $reply_address"
+    arrControlFile(29) = "  expand file $home/.vacation.msg"
+    arrControlFile(20) = "  once $home/.vacation.db"
+    arrControlFile(21) = "  log $home/.vacation.log"
+    arrControlFile(32) = "  once_repeat 10d"
+    arrControlFile(33) = "  from ""Firstname Secondname <recipient.name@company.co.uk>"""
+    arrControlFile(34) = "  subject ""Auto: Re: $h_subject:"""
+    arrControlFile(35) = "endif"
+    intControlFileEOF = 35
 End Sub
 
 Sub LoadDefaultMessage
-
-    strVacationMessage   = "This is an auto-response message" _
-                & vbCRLF & "" _
-                & vbCRLF & "I am currently out of the office." _
+    strVacationMessage   = "I am currently out of the office." _
                 & vbCRLF & "I will respond to your message on my return."
 End Sub                
 
+Function InvalidEmail(strEmailAddress)
+    ' the purpose of this function is to return check a string looks like a valid email address and true or false
+    ' check for @ & . and the default address, start the compare from after 0, or a match will return 0 which looks like "not found"
+    If Len(strEmailAddress) < 10 _
+        Or InStr(1,strEmailAddress,"@",vbTextCompare) = 0 _
+        Or InStr(1,strEmailAddress,".",vbTextCompare) = 0 _
+        Or InStr(1,strEmailAddress,"ecipient",vbTextCompare) <> 0 _
+        Or InStr(1,strEmailAddress,"company",vbTextCompare) <> 0 Then
+        InvalidEmail = True
+    Else
+        InvalidEmail = False
+    End If
 
+End Function
+
+Sub GetUserDetails
+    ' called if the user details were not in the .forward file.  In our environment we can steal them from the 
+    ' Thunderbird control file.  There's a file at:
+    ' C:\Users\username\AppData\Roaming\Thunderbird\profiles.ini
+    ' which tells us the location of the Thunderbird profile, in there is a prefs.js file, e.g. at
+    ' C:\Users\username\AppData\Roaming\Thunderbird\Profiles\randomstring\prefs.js
+    ' and we can read that to get the user full name and the email address.
+    ' another way might be to do an LDAP query.
+
+    ' and then 
+    strUserProfile=oShell.ExpandEnvironmentStrings("%USERPROFILE%")
+
+    ' we need these things
+    strThunderbirdini      = strUserProfile & "\AppData\Roaming\Thunderbird\profiles.ini"
+    Dim strThunderbirdPrefs
+    Dim strIsRelative
+    Dim strPath      
+    Dim strDefault
+
+    ' read the ini file, it contains text like:
+    ' IsRelative=1
+    ' Path=Profiles/randomstring
+    ' Default=1
+
+    If fso.FileExists(strThunderbirdini) Then
+        Set objIniFile = fso.GetFile(strThunderbirdini)
+        If objIniFile.Size > 0 Then 
+            Set objIniFile = fso.OpenTextFile(strThunderbirdini, ForReading)
+            ' and read the entire file
+            Do Until (objIniFile.AtEndOfStream or strDefault = "1")
+                strThisLine = objIniFile.Readline
+                intEqualPos = InStr(1,strThisLine,"=",vbTextCompare) + 1
+                ' Mid(string,start[,length]) 
+                If InStr(1,strThisLine,"IsRelative",vbTextCompare) Then strIsRelative = Mid(strThisLine,intEqualPos) 'the string after the equals sign
+                If InStr(1,strThisLine,"Path",vbTextCompare)       Then strPath       = Mid(strThisLine,intEqualPos) 'the string after the equals sign
+                If InStr(1,strThisLine,"Default",vbTextCompare)    Then strDefault    = Mid(strThisLine,intEqualPos) 'the string after the equals sign
+            Loop 
+            objIniFile.Close
+            if debugmode Then WScript.Echo "IsRelative " & strIsRelative
+            if debugmode Then WScript.Echo "Path       " & strPath
+            if debugmode Then WScript.Echo "Default    " & strDefault
+        Else
+            ' if we've failed, then crash out & rely on the user filling it in.
+            Exit Sub
+        End If
+    End If
+
+    ' now we've found out where the Profile is, we need to read the prefs.js file
+    ' Replace(string,find,replacewith[,start[,count[,compare]]]) 
+    If strIsRelative = "1" Then 
+        strThunderbirdPrefs = strUserProfile & "\AppData\Roaming\Thunderbird\" & strPath & "\prefs.js"
+    Else
+        strThunderbirdPrefs = Replace(strPath & "\prefs.js","/","\",1,-1,vbTextCompare)
+    End If
+
+    ' turn the separators round the right way
+        strThunderbirdPrefs = Replace(strThunderbirdPrefs,"/","\")
+    if debugmode Then WScript.Echo "Path       " & strThunderbirdPrefs
+
+    ' now we've found out where the Profile is, we need to read the prefs.js file, and find these lines
+    ' user_pref("mail.identity.id1.fullName", "Firstname Secondname");
+    ' user_pref("mail.identity.id1.useremail", "user.name@company.com");
+
+    If fso.FileExists(strThunderbirdPrefs) Then
+        Set objPrefsFile = fso.GetFile(strThunderbirdPrefs)
+        If objPrefsFile.Size > 0 Then 
+            Set objPrefsFile = fso.OpenTextFile(strThunderbirdPrefs, ForReading)
+            ' and read the entire file
+            Do Until (objPrefsFile.AtEndOfStream or strMyEmailAddress <> "")
+                strThisLine = objPrefsFile.Readline
+                intCommaPos = InStr(1,strThisLine,",",vbTextCompare) + 1
+                ' we just want to read id1 even if there are many
+                If InStr(1,strThisLine,"mail.identity.id1.fullName",vbTextCompare)   Then strMyName  = Mid(strThisLine,intCommaPos) 'the string after the comma
+                If InStr(1,strThisLine,"mail.identity.id1.useremail",vbTextCompare)  Then strMyEmailAddress = Mid(strThisLine,intCommaPos) 'the string after the comma
+            Loop 
+            objPrefsFile.Close
+            if debugmode Then WScript.Echo "strMyName  " & strMyName
+            if debugmode Then WScript.Echo "strMyEmailAddress " & strMyEmailAddress
+            
+        Else
+             WScript.Quit
+        End If
+    End If
+
+    ' clean up the variables
+    strMyName  =      Replace(strMyName,"""","")
+    strMyName  = Trim(Replace(strMyName,");",""))
+    strMyEmailAddress =      Replace(strMyEmailAddress,"""","")
+    strMyEmailAddress = Trim(Replace(strMyEmailAddress,");",""))
+
+End Sub
 
 
 

@@ -36,11 +36,11 @@
   <body onKeyPress="CheckKey">
     You can choose to send a copy of every mail to someone else within your organisation<br /> 
     or you can set an Out of Office message.<br /> 
-    Please select one of the following options:<br />
     <!-- <a data-href="http://itwiki.goodness.co.uk/itwiki/doku.php" href="#" onclick=""> please blah</a> -->
-    
+
     <p>
-      <input id="radioRedirect" type="radio" name="RadioOption" value="redirect" /> redirect all mail to (with a copy to myself):<br />
+    Please select one of the following options:<br />
+      <input id="radioRedirect" type="radio" name="RadioOption" value="redirect" /> send a copy of all my mail to:<br />
       <input style="visibility: hidden;" type="checkbox" name="dummy">
       <input type="text" name="ForwardAllTo" size="75">
       <!-- to make this box appear remove style="visibility: hidden;" and uncomment the text, then uncomment the setting at the head of the vb script-->
@@ -50,20 +50,18 @@
     </p>
     
     <p>
-      <input id="radioVacation" type="radio" name="RadioOption" value="setooo" /> set Out of Office subject & message:
-      <br />
+    <p>
+      <input id="radioVacation" type="radio" name="RadioOption" value="setooo" /> set Out of Office message:<br />
       <input style="visibility: hidden;" type="checkbox" name="dummy">
-      <input type="text" name="VacationSubject" size="75"><br/>
+      <input type="text" name="MyName" size="75"> My Name<br />
+      <input style="visibility: hidden;" type="checkbox" name="dummy">
+      <input type="text" name="MyEmailAddress" size="75"> My email address<br />
+      <input style="visibility: hidden;" type="checkbox" name="dummy">
+      <textarea name="VacationMessage" rows=5 cols=75></textarea><br />
     </p>
     
     <p>
-      <!-- <input style="visibility: hidden;" id="radioVacation2" type="radio" name="RadioOption2" value="setdummy" /> -->
-      <input style="visibility: hidden;" type="checkbox" name="dummy">
-      <textarea name="VacationMessage" rows=5 cols=75></textarea>
-    </p>
-    
-    <p>
-      <input id="radioClear" type="radio" name="RadioOption" value="reset"> no "redirect" or "Out of Office" message
+      <input id="radioClear" type="radio" name="RadioOption" value="reset"> turn off "Copy to" or "Out of Office" message
     </p>
     
     <p>
