@@ -4,7 +4,7 @@ In our environment we use a Debian server, running Samba to make it emulate a Wi
 
 I couldn't find any plugins for Thunderbird which would create / manage this file, so I hacked this little .hta file to do the job.  It's pretty basic but hopefully will allow our users to manage their redirection and Out of Office needs.  The main reason was to figure out the steps required to make it work.
 
-So the user can do one (and only one) of:
+The user can do one (and only one) of:
 
 * copy all inbound mail to another user
 * specify or edit an Out of Office (Vacation) message
@@ -30,4 +30,3 @@ Maybe:
 
 * show the user a summary of what we did when they turn off Out of Office
 * make it look prettier
-
