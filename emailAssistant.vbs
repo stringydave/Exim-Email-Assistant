@@ -12,6 +12,7 @@
 ' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
 ' 14/05/18  dce  1.3 add getUserDetails, get Username, Email Address from Thunderbird control files.
 ' 23/05/18  dce  1.4 correct typos in LoadDefaultControlFile
+'                    use "unseen deliver"
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -349,14 +350,14 @@ Sub LoadDefaultControlFile
     arrControlFile(23) = ""
     arrControlFile(24) = "# out of office"
     arrControlFile(25) = "# if personal"
-    arrControlFile(26) = "#   alias recipient.name@company.co.uk"
+    arrControlFile(26) = "#   alias "
     arrControlFile(27) = "#   then"
     arrControlFile(28) = "#   vacation to $reply_address"
     arrControlFile(29) = "#   expand file $home/.vacation.msg"
     arrControlFile(30) = "#   once $home/.vacation.db"
     arrControlFile(31) = "#   log $home/.vacation.log"
     arrControlFile(32) = "#   once_repeat 10d"
-    arrControlFile(33) = "#   from ""Firstname Secondname <recipient.name@company.co.uk>"""
+    arrControlFile(33) = "#   from """""
     arrControlFile(34) = "#   subject ""Auto: Re: $h_subject:"""
     arrControlFile(35) = "# endif"
     intControlFileEOF = 35
