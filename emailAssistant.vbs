@@ -11,6 +11,7 @@
 ' 09/04/18  dce  1.0 partly working, but lots more to do 
 ' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
 ' 14/05/18  dce  1.3 add getUserDetails, get Username, Email Address from Thunderbird control files.
+' 23/05/18  dce  1.4 correct typos in LoadDefaultControlFile
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -80,8 +81,6 @@ Sub Window_onLoad
             arrForwardLine = split(strThisLine, " ", -1, vbTextCompare)
             ' the last one must be the address(es)
             strForwardEmail = arrForwardLine(Ubound(arrForwardLine))
-            ' If Not (Instr(1, arrForwardLine(0), "#", vbTextCompare)) Then radioRedirect.Checked = true
-            If Instr(1, strThisLine, "unseen", vbTextCompare) Then sendtoSelf.Checked = true
             ' we need this line for later
             intForwardLine = i
         End If
@@ -224,7 +223,7 @@ Sub SetRedirect(blSet)
             SetRedirectStatus = false
             Exit Sub
         Else
-            arrControlFile(intForwardLine) = "deliver " & strForwardEmail
+            arrControlFile(intForwardLine) = "unseen deliver " & strForwardEmail
         End If
         ' and turn off any Vacation message
         SetVacation false
@@ -349,17 +348,17 @@ Sub LoadDefaultControlFile
     arrControlFile(22) = "endif"
     arrControlFile(23) = ""
     arrControlFile(24) = "# out of office"
-    arrControlFile(25) = "if personal"
-    arrControlFile(26) = "  alias recipient.name@company.co.uk"
-    arrControlFile(27) = "  then"
-    arrControlFile(28) = "  vacation to $reply_address"
-    arrControlFile(29) = "  expand file $home/.vacation.msg"
-    arrControlFile(20) = "  once $home/.vacation.db"
-    arrControlFile(21) = "  log $home/.vacation.log"
-    arrControlFile(32) = "  once_repeat 10d"
-    arrControlFile(33) = "  from ""Firstname Secondname <recipient.name@company.co.uk>"""
-    arrControlFile(34) = "  subject ""Auto: Re: $h_subject:"""
-    arrControlFile(35) = "endif"
+    arrControlFile(25) = "# if personal"
+    arrControlFile(26) = "#   alias recipient.name@company.co.uk"
+    arrControlFile(27) = "#   then"
+    arrControlFile(28) = "#   vacation to $reply_address"
+    arrControlFile(29) = "#   expand file $home/.vacation.msg"
+    arrControlFile(30) = "#   once $home/.vacation.db"
+    arrControlFile(31) = "#   log $home/.vacation.log"
+    arrControlFile(32) = "#   once_repeat 10d"
+    arrControlFile(33) = "#   from ""Firstname Secondname <recipient.name@company.co.uk>"""
+    arrControlFile(34) = "#   subject ""Auto: Re: $h_subject:"""
+    arrControlFile(35) = "# endif"
     intControlFileEOF = 35
 End Sub
 
