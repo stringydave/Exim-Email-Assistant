@@ -16,6 +16,7 @@
 ' 23/05/18  dce  1.4 correct typos in LoadDefaultControlFile
 '                    use "unseen deliver"
 ' 23/07/18  dce  1.5 better code to locate where control files should go
+'                    debug code in GetUserDetails
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -382,8 +383,8 @@ Sub LoadDefaultMessage
 End Sub                
 
 Function InvalidEmail(strEmailAddress)
-    ' the purpose of this function is to return check a string looks like a valid email address and true or false
-    ' check for @ & . and the default address, start the compare from after 0, or a match will return 0 which looks like "not found"
+    ' the purpose of this function is to check that a string looks like a valid email address
+    ' check for @ & . and the default address, start the compare from after 0, else a match will return 0 which looks like "not found"
     If Len(strEmailAddress) < 10 _
         Or InStr(1,strEmailAddress,"@",vbTextCompare) = 0 _
         Or InStr(1,strEmailAddress,".",vbTextCompare) = 0 _
@@ -397,7 +398,7 @@ Function InvalidEmail(strEmailAddress)
 End Function
 
 Sub GetUserDetails
-Msgbox "send a"
+    if debugmode Then Msgbox "GetUserDetails from Thunderbird prefs file..."
     ' called if the user details were not in the .forward file.  In our environment we can steal them from the 
     ' Thunderbird control file.  There's a file at:
     ' C:\Users\username\AppData\Roaming\Thunderbird\profiles.ini
@@ -435,9 +436,9 @@ Msgbox "send a"
                 If InStr(1,strThisLine,"Default",vbTextCompare)    Then strDefault    = Mid(strThisLine,intEqualPos) 'the string after the equals sign
             Loop 
             objIniFile.Close
-            if debugmode Then WScript.Echo "IsRelative " & strIsRelative
-            if debugmode Then WScript.Echo "Path       " & strPath
-            if debugmode Then WScript.Echo "Default    " & strDefault
+            if debugmode Then Msgbox "IsRelative " & strIsRelative & vbCRLF & _
+                                     "Path       " & strPath & vbCRLF & _
+                                     "Default    " & strDefault
         Else
             ' if we've failed, then crash out & rely on the user filling it in.
             Exit Sub
@@ -454,7 +455,7 @@ Msgbox "send a"
 
     ' turn the separators round the right way
         strThunderbirdPrefs = Replace(strThunderbirdPrefs,"/","\")
-    if debugmode Then WScript.Echo "Path       " & strThunderbirdPrefs
+    if debugmode Then Msgbox "Path       " & strThunderbirdPrefs
 
     ' now we've found out where the Profile is, we need to read the prefs.js file, and find these lines
     ' user_pref("mail.identity.id1.fullName", "Firstname Secondname");
@@ -473,11 +474,9 @@ Msgbox "send a"
                 If InStr(1,strThisLine,"mail.identity.id1.useremail",vbTextCompare)  Then strMyEmailAddress = Mid(strThisLine,intCommaPos) 'the string after the comma
             Loop 
             objPrefsFile.Close
-            if debugmode Then WScript.Echo "strMyName  " & strMyName
-            if debugmode Then WScript.Echo "strMyEmailAddress " & strMyEmailAddress
-            
         Else
-             WScript.Quit
+            ' if the file was zero size
+            Exit Sub
         End If
     End If
 
@@ -486,7 +485,8 @@ Msgbox "send a"
     strMyName  = Trim(Replace(strMyName,");",""))
     strMyEmailAddress =      Replace(strMyEmailAddress,"""","")
     strMyEmailAddress = Trim(Replace(strMyEmailAddress,");",""))
-
+    if debugmode Then Msgbox "strMyName  " & strMyName & vbCRLF & _
+                             "strMyEmailAddress " & strMyEmailAddress
 End Sub
 
 
