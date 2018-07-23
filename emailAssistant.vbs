@@ -7,20 +7,33 @@
 ' https://technet.microsoft.com/en-us/library/ee692769.aspx  part 2
 
 ' todo: if the control file is not valid, then initialise it
+' todo: cope with multiple vacation alias lines
+' todo: trap failed to write to control file
 
 ' 09/04/18  dce  1.0 partly working, but lots more to do 
 ' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
 ' 14/05/18  dce  1.3 add getUserDetails, get Username, Email Address from Thunderbird control files.
 ' 23/05/18  dce  1.4 correct typos in LoadDefaultControlFile
 '                    use "unseen deliver"
+' 23/07/18  dce  1.5 better code to locate where control files should go
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set dctControlFile = CreateObject("Scripting.Dictionary")
 
-' and then 
+' and then we need to find out where the control files will be
 Set oShell = CreateObject( "WScript.Shell" )
+' the easiest one is %homeshare%, but if that's empty, then it will still contain "%" when we expand it
 strHhomeshare=oShell.ExpandEnvironmentStrings("%HOMESHARE%")
+' if that doesn't work try %homedrive% %homepath%
+If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvironmentStrings("%HOMEDRIVE%") & oShell.ExpandEnvironmentStrings("%HOMEPATH%")
+' if that doesn't work try %logonserver%\%username%, which may fail later if there's more than one %logonserver%
+If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvironmentStrings("%LOGONSERVER%") & "\" & oShell.ExpandEnvironmentStrings("%USERNAME%")
+' and if it's still empty, then give up.
+If InStr(1,strHhomeshare,"%",vbTextCompare) Then 
+    Msgbox "emailAssistant cannot work out where to save the control files" & vbCRLF & "files = " strHhomeshare & vbCRLF & "emailAssistant will now quit."
+    Window.Close
+End If
 
 ' we need these things global
 strControlFile         = strHhomeshare & "\.forward"
@@ -350,14 +363,14 @@ Sub LoadDefaultControlFile
     arrControlFile(23) = ""
     arrControlFile(24) = "# out of office"
     arrControlFile(25) = "# if personal"
-    arrControlFile(26) = "#   alias "
+    arrControlFile(26) = "#   alias "         ' leave blank to be filled in by GetUserDetails
     arrControlFile(27) = "#   then"
     arrControlFile(28) = "#   vacation to $reply_address"
     arrControlFile(29) = "#   expand file $home/.vacation.msg"
     arrControlFile(30) = "#   once $home/.vacation.db"
     arrControlFile(31) = "#   log $home/.vacation.log"
     arrControlFile(32) = "#   once_repeat 10d"
-    arrControlFile(33) = "#   from """""
+    arrControlFile(33) = "#   from """""       ' leave blank to be filled in by GetUserDetails
     arrControlFile(34) = "#   subject ""Auto: Re: $h_subject:"""
     arrControlFile(35) = "# endif"
     intControlFileEOF = 35
@@ -384,6 +397,7 @@ Function InvalidEmail(strEmailAddress)
 End Function
 
 Sub GetUserDetails
+Msgbox "send a"
     ' called if the user details were not in the .forward file.  In our environment we can steal them from the 
     ' Thunderbird control file.  There's a file at:
     ' C:\Users\username\AppData\Roaming\Thunderbird\profiles.ini
