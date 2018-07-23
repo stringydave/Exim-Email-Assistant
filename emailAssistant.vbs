@@ -8,7 +8,7 @@
 
 ' todo: if the control file is not valid, then initialise it
 ' todo: cope with multiple vacation alias lines
-' todo: trap failed to write to control file
+' todo: trap and handle any failure to write to control/message files
 
 ' 09/04/18  dce  1.0 partly working, but lots more to do 
 ' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
@@ -31,7 +31,7 @@ If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvi
 If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvironmentStrings("%LOGONSERVER%") & "\" & oShell.ExpandEnvironmentStrings("%USERNAME%")
 ' and if it's still empty, then give up.
 If InStr(1,strHhomeshare,"%",vbTextCompare) Then 
-    Msgbox "emailAssistant cannot work out where to save the control files" & vbCRLF & "files = " strHhomeshare & vbCRLF & "emailAssistant will now quit."
+    Msgbox "emailAssistant cannot work out where to save the control files" & vbCRLF & "files = " & strHhomeshare & vbCRLF & "emailAssistant will now quit."
     Window.Close
 End If
 
