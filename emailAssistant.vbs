@@ -8,7 +8,7 @@
 
 ' todo: if the control file is not valid, then initialise it
 ' todo: cope with multiple vacation alias lines
-' todo: trap and handle any failure to write to control/message files
+' todo: trap and handle any failure to write to control files
 
 ' 09/04/18  dce  1.0 partly working, but lots more to do 
 ' 11/05/18  dce  1.2 vacation subject is no longer a thing, we hard code it
@@ -17,19 +17,33 @@
 '                    use "unseen deliver"
 ' 23/07/18  dce  1.5 better code to locate where control files should go
 '                    debug code in GetUserDetails
+' 30/07/18  dce  1.6 further improvements to control file location code
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set dctControlFile = CreateObject("Scripting.Dictionary")
 
 ' and then we need to find out where the control files will be
+' ideally HOMESHARE=\\server.address\usershare, but sometimes that's not defined
+' USERPROFILE=C:\Users\username, which is no use, we can use
+' HOMEDRIVE=H: & HOMEPATH=\ 
+' but sometimes they're set to HOMEDRIVE=C: & HOMEPATH=\Users\username, which is no use at all
+' and LOGONSERVER=\\a-server-on-the-network but it might not be the one where the shares are
+' so as a backup, we probably want to do some combination of 
+' net use, look for a share with username in it, and use that.
+' H:        \\server.address\usernameshare
+
 Set oShell = CreateObject( "WScript.Shell" )
 ' the easiest one is %homeshare%, but if that's empty, then it will still contain "%" when we expand it
 strHhomeshare=oShell.ExpandEnvironmentStrings("%HOMESHARE%")
+strSystemDrive=UCase(Mid(oShell.ExpandEnvironmentStrings("%SystemDrive%"),1,1))
 ' if that doesn't work try %homedrive% %homepath%
 If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvironmentStrings("%HOMEDRIVE%") & oShell.ExpandEnvironmentStrings("%HOMEPATH%")
-' if that doesn't work try %logonserver%\%username%, which may fail later if there's more than one %logonserver%
-If InStr(1,strHhomeshare,"%",vbTextCompare) Then strHhomeshare=oShell.ExpandEnvironmentStrings("%LOGONSERVER%") & "\" & oShell.ExpandEnvironmentStrings("%USERNAME%")
+' if that doesn't work, or is set to C:\something...
+If InStr(1,strHhomeshare,"%",vbTextCompare) or UCase(Mid(strHhomeshare,1,1)) = strSystemDrive Then
+    ' then try %logonserver%\%username%, (which will fail if %logonserver% <> server-where-my-home-drive-is)
+    strHhomeshare=oShell.ExpandEnvironmentStrings("%LOGONSERVER%") & "\" & oShell.ExpandEnvironmentStrings("%USERNAME%")
+End If
 ' and if it's still empty, then give up.
 If InStr(1,strHhomeshare,"%",vbTextCompare) Then 
     Msgbox "emailAssistant cannot work out where to save the control files" & vbCRLF & "files = " & strHhomeshare & vbCRLF & "emailAssistant will now quit."
@@ -285,7 +299,13 @@ Sub SetVacation(blSet)
         
         ' uncomment any ooo settings in the array
         For i = intVacationSectionStart to intVacationSectionEnd
-            If Left(arrControlFile(i),1) = "#" Then arrControlFile(i) = Mid(arrControlFile(i),3)
+            If Left(arrControlFile(i),1) = "#" Then
+                ' uncoment any correctly formatted lines
+                arrControlFile(i) = Replace(arrControlFile(i),"# ","",1,-1,vbTextCompare) 
+                ' and deal with any where someone's edited the file by hand
+                arrControlFile(i) = Replace(arrControlFile(i),"#","",1,-1,vbTextCompare) 
+
+            End If
         Next
 
         ' and do this
