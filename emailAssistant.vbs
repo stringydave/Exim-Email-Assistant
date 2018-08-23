@@ -18,6 +18,7 @@
 ' 23/07/18  dce  1.5 better code to locate where control files should go
 '                    debug code in GetUserDetails
 ' 30/07/18  dce  1.6 further improvements to control file location code
+' 23/08/18  dce  1.7 correctly handle where control file vacation section is commented with "#" instead of "# " as we expect.
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
