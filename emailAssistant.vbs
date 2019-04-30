@@ -19,6 +19,7 @@
 '                    debug code in GetUserDetails
 ' 30/07/18  dce  1.6 further improvements to control file location code
 ' 23/08/18  dce  1.7 correctly handle where control file vacation section is commented with "#" instead of "# " as we expect.
+' 30/04/19  dce  1.8 handle multiple alias lines in vacation section
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -62,17 +63,16 @@ Dim strVacationMessage
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 
 Dim arrControlFile(200) ' make sure it's big enough, memory is cheap
+Dim arrAliasEmailAddress(20)
+Dim arrAliasEmailAddressLines(20)
 Dim intForwardLine
-Dim intUserNameLine
-Dim intUserEmailLine
 Dim intVacationSectionStart
-Dim strVacationAlias 
-Dim intVacationAliasLine 
 Dim intVacationFileLine
-Dim strVacationFrom
 Dim intVacationFromLine
 Dim intVacationSectionEnd
 Dim intControlFileEOF
+Dim intAliasIndex
+intAliasIndex = 0
 
 SetRedirectStatus = true 
 SetVacationStatus = true
@@ -125,10 +125,15 @@ Sub Window_onLoad
             strVacationLine = strThisLine
         End If
                 
-        ' ==== vacation alias
+        ' ==== vacation alias, there might be more than one
         If (blVacationSection And InStr(1,strThisLine,"alias",vbTextCompare)) Then 
+			' get the email address part
             intStripLine = InStr(1,strThisLine,"alias",vbTextCompare) + Len("alias ")
-            intVacationAliasLine = i
+			arrAliasEmailAddress(intAliasIndex) = Trim(Mid(strThisLine,intStripLine))
+			' if this is empty or does not look like an email address, we'll deal with this at file write time
+			' and remember where it was
+			arrAliasEmailAddressLines(intAliasIndex) = i
+			intAliasIndex = intAliasIndex + 1
         End If
         
         ' ==== message file location
@@ -293,9 +298,12 @@ Sub SetVacation(blSet)
         ' alias recipient.name@company.co.uk"
         ' from "Firstname Secondname <recipient.name@company.co.uk>"
         
-        ' todo: cope here with multiple alias lines
+        For i = 0 to intAliasIndex - 1
+			' if this is empty or does not look like an email address, fill it with default
+			If InvalidEmail(arrAliasEmailAddress(i)) Then arrAliasEmailAddress(i) = strMyEmailAddress
+			arrControlFile(arrAliasEmailAddressLines(i)) = "  alias " & arrAliasEmailAddress(i)
+		Next
 
-        arrControlFile(intVacationAliasLine) = "  alias " & strMyEmailAddress
         arrControlFile(intVacationFromLine)  = "  from """ & strMyName & " <" & strMyEmailAddress & ">"""
         
         ' uncomment any ooo settings in the array
