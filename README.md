@@ -23,8 +23,7 @@ Because the user username is different to the user email address, we need to use
 
 ToDo:
 
-* cope with multiple aliases
-* re-write it in a modern language
+* re-write it in a modern language (Python) -> here: https://github.com/stringydave/emailAssistant
 
 Maybe:
 
