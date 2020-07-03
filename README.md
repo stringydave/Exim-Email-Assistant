@@ -24,6 +24,7 @@ Because the user username is different to the user email address, we need to use
 ToDo:
 
 * re-write it in a modern language (Python) -> here: https://github.com/stringydave/emailAssistant
+* re-write it as a Thunderbird Plugin
 
 Maybe:
 
