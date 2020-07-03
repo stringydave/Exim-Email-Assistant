@@ -1,6 +1,6 @@
 ' We want to do several things with this file 
 ' 1. if the user enters an email address, then copy all mail to that user
-' 2. if the user enters a vacation message, then set that as an out of office message 
+' 2. if the user enters a vacation message, then set that as an out of office message
 
 ' https://www.exim.org/exim-html-current/doc/html/spec_html/filter_ch-exim_filter_files.html
 ' https://technet.microsoft.com/en-us/library/ee692768.aspx  part 1
@@ -20,6 +20,7 @@
 ' 30/07/18  dce  1.6 further improvements to control file location code
 ' 23/08/18  dce  1.7 correctly handle where control file vacation section is commented with "#" instead of "# " as we expect.
 ' 30/04/19  dce  1.8 handle multiple alias lines in vacation section
+' 03/07/20  dce  1.9 fix we can't write to hidden files
 
 ' initialise
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -55,12 +56,15 @@ End If
 ' we need these things global
 strControlFile         = strHhomeshare & "\.forward"
 strVacationFileDflt    = strHhomeshare & "\.vacation.msg"
+strVacationDB          = strHhomeshare & "\.vacation.db"
+strVacationLog         = strHhomeshare & "\.vacation.log"
 Dim strMyName
 Dim strMyEmailAddress
 Dim strVacationFile
 Dim strForwardEmail
 Dim strVacationMessage
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
+Const fNone = 0, fHidden = 2
 
 Dim arrControlFile(200) ' make sure it's big enough, memory is cheap
 Dim arrAliasEmailAddress(20)
@@ -212,8 +216,6 @@ Sub Window_onLoad
     
     ' one of the buttons should be checked
     If (Not (radioVacation.Checked Or radioRedirect.Checked)) Then radioClear.Checked = true
-    
-
 End Sub
 
 Sub Submit
@@ -233,6 +235,7 @@ Sub Submit
     ' and write the control file
     If (SetRedirectStatus and SetVacationStatus) Then 
         WriteControlFile
+		HideControlFiles
         Window.Close
     End If
 End Sub
@@ -320,9 +323,16 @@ Sub SetVacation(blSet)
         ' and do this
         SetRedirect false
 
+		' we can't write the control file if it's hidden
+		If fso.FileExists(strVacationFile) Then
+			Set objVacationFile = fso.GetFile(strVacationFile)
+			objVacationFile.Attributes = fNone
+		End If
         ' write out the vacation file in case we changed it
         Set objVacationFile = fso.OpenTextFile(strVacationFile, ForWriting, true)
         objVacationFile.Write(VacationMessage.Value)
+		objVacationFile.Close
+		' remind user to turn it off later
         Msgbox _
             "Out of Office message set:" & vbCRLF & vbCRLF & _
             "From: " & strMyName & " " & strMyEmailAddress & vbCRLF & _
@@ -345,6 +355,11 @@ Sub Reset
 End Sub
 
 Sub WriteControlFile
+	' we can't write the control file if it's hidden
+    If fso.FileExists(strControlFile) Then
+        Set objFile = fso.GetFile(strControlFile)
+		objFile.Attributes = fNone
+    End If
     ' if the file does not exist, we shall need to create it
     ' object.OpenTextFile (filename [, iomode[, createifnotexist[, format]]])
     Set objFile = fso.OpenTextFile(strControlFile, ForWriting, true)
@@ -365,6 +380,27 @@ Sub LoadControlFile
     Loop 
     objControlFile.Close
 End Sub 
+
+Sub HideControlFiles
+	' it's tidier if we hide the control files in case they are where the user can see them
+    If fso.FileExists(strControlFile) Then
+        Set objFile = fso.GetFile(strControlFile)
+		objFile.Attributes = fHidden
+    End If
+    If fso.FileExists(strVacationFile) Then
+        Set objFile = fso.GetFile(strVacationFile)
+		objFile.Attributes = fHidden
+    End If
+    If fso.FileExists(strVacationDB) Then
+        Set objFile = fso.GetFile(strVacationDB)
+		objFile.Attributes = fHidden
+    End If
+    If fso.FileExists(strVacationLog) Then
+        Set objFile = fso.GetFile(strVacationLog)
+		objFile.Attributes = fHidden
+    End If
+End Sub 
+
 
 Sub LoadDefaultControlFile
     arrControlFile( 0) = "# Exim Filter"
